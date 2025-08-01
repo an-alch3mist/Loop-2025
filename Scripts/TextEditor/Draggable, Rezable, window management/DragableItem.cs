@@ -75,6 +75,7 @@ namespace GptDeepResearch
 		public bool useRightMouseButton = true;
 
 		[SerializeField] RectTransform entireWindowRect;
+		[SerializeField] bool log_events = false;
 
 		private Vector2 delta;
 		private Transform entireWindowParentBeforeDrag;
@@ -156,7 +157,8 @@ namespace GptDeepResearch
 		{
 			if (isDragging) return;
 
-			Debug.Log($"OnBeginDrag with button {buttonIndex} (0=Left, 1=Right, 2=Middle)");
+			if (this.log_events == true)
+				Debug.Log($"OnBeginDrag with button {buttonIndex} (0=Left, 1=Right, 2=Middle)");
 			isDragging = true;
 			dragButton = buttonIndex;
 
@@ -183,7 +185,8 @@ namespace GptDeepResearch
 		{
 			if (!isDragging) return;
 
-			Debug.Log("OnDrag");
+			if (this.log_events == true)
+				Debug.Log("OnDrag");
 			Vector2 targetPos = INPUT.UI.pos + this.delta;
 
 			// restriction within bounds >>
@@ -197,7 +200,8 @@ namespace GptDeepResearch
 		{
 			if (!isDragging) return;
 
-			Debug.Log("OnEndDrag");
+			if (this.log_events == true)
+				Debug.Log("OnEndDrag");
 			Vector2 targetPos = INPUT.UI.pos + this.delta;
 
 			// restriction within bounds >>
