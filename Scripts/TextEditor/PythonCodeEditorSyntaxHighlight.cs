@@ -4,10 +4,11 @@ using System.Text;
 using System.Text.RegularExpressions;
 using UnityEngine;
 using TMPro;
+using UnityEngine.UI;
 
 using SPACE_UTIL;
 
-namespace CodeEditor
+namespace GptDeepResearch
 {
 	/// <summary>
 	/// Professional Python code editor with syntax highlighting, auto-indentation, and smart editing features
@@ -31,7 +32,8 @@ namespace CodeEditor
 		[SerializeField] private bool enableAutoIndent = true;
 
 		// Raw text storage (without rich text tags)
-		private string rawText = "";
+		[Header("handled inside")]
+		[SerializeField] string rawText = "";
 		private bool isUpdatingText = false;
 
 		// Syntax highlighting
@@ -40,20 +42,34 @@ namespace CodeEditor
 		// Python keywords
 		public static readonly HashSet<string> PythonKeywords = new HashSet<string>
 		{
-			"if", "else", "elif", "while", "for", "def", "class", "return", "pass",
-			"break", "continue", "import", "from", "as", "try", "except", "finally",
-			"with", "lambda", "and", "or", "not", "in", "is", "True", "False", "None",
-			"global", "nonlocal", "yield", "async", "await"
+			"if", "else", "elif", "while", "for", "def", "class",
+			"return", "pass",
+			"break", "continue",
+			"import",
+			"and", "or", "not",
+			"in", "is",
+			"True", "False",
+			"None",
+			"global",
+			"print",
 		};
 
 		void Start()
 		{
 			InitializeEditor();
+			// ConfigureInputFieldWrapping();
 			Debug.Log(inputField.text.flat());
+
+			/* not a desirable behaviour when word wrap for an innput field is disabled
+			var textComponent = this.gameObject.GC<TMP_InputField>().textComponent;
+			textComponent.enableWordWrapping = false;
+			textComponent.overflowMode = TextOverflowModes.Overflow;
+			*/
 		}
 
 		void Update()
 		{
+
 			// HandleSpecialInput();
 		}
 
@@ -93,6 +109,32 @@ namespace CodeEditor
 			// Process initial text if any
 			rawText = inputField.text;
 			UpdateDisplayText();
+		}
+
+		void ConfigureInputFieldWrapping()
+		{
+			TMP_InputField codeInputField = GetComponent<TMP_InputField>();
+			if (codeInputField == null) return;
+
+			// Disable word wrapping
+			codeInputField.lineType = TMP_InputField.LineType.MultiLineNewline;
+
+			// Configure text component for no wrapping
+			var textComponent = codeInputField.textComponent;
+			textComponent.enableWordWrapping = false;
+			textComponent.overflowMode = TextOverflowModes.Overflow;
+
+			// Enable horizontal scrolling
+
+			var scrollRect = codeInputField.GetComponent<ScrollRect>();
+			if (scrollRect == null)
+			{
+				// InputField handles its own scrolling, but we can configure it
+				textComponent.rectTransform.anchorMin = new Vector2(0, 0);
+				textComponent.rectTransform.anchorMax = new Vector2(0, 1);
+				textComponent.rectTransform.pivot = new Vector2(0, 1);
+			}
+
 		}
 
 		private void ConfigureTabWidth()
@@ -184,152 +226,6 @@ namespace CodeEditor
 			{
 				Debug.LogError($"Error processing text: {ex.Message}");
 				displayText.text = rawText; // Fallback to raw text
-			}
-		}
-
-		private void HandleSpecialInput()
-		{
-			if (!inputField.isFocused) return;
-
-			// Handle Tab key - completely override Unity's behavior
-			if (Input.GetKeyDown(KeyCode.Tab))
-			{
-				// Prevent Unity from processing this tab
-				Event.current?.Use();
-				HandleTabInput();
-			}
-
-			// Handle Enter key for auto-indentation
-			if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-			{
-				if (enableAutoIndent)
-				{
-					StartCoroutine(HandleEnterInputDelayed());
-				}
-			}
-
-			// Handle Ctrl+Backspace
-			if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Backspace))
-			{
-				HandleCtrlBackspace();
-			}
-		}
-
-		private void HandleTabInput()
-		{
-			isUpdatingText = true;
-
-			try
-			{
-				int caretPos = inputField.caretPosition;
-
-				// Insert actual tab character
-				rawText = rawText.Insert(caretPos, "\t");
-				inputField.text = rawText;
-				inputField.caretPosition = caretPos + 1;
-
-				UpdateDisplayText();
-			}
-			finally
-			{
-				isUpdatingText = false;
-			}
-		}
-
-		private System.Collections.IEnumerator HandleEnterInputDelayed()
-		{
-			yield return null; // Wait one frame for Unity to process the enter
-
-			HandleEnterInput();
-		}
-
-		private void HandleEnterInput()
-		{
-			isUpdatingText = true;
-
-			try
-			{
-				int caretPos = inputField.caretPosition;
-
-				// Find the start of the previous line (the line before the new line we just created)
-				int prevLineStart = rawText.LastIndexOf('\n', caretPos - 2);
-				if (prevLineStart == -1) prevLineStart = 0;
-				else prevLineStart++; // Move past the \n
-
-				// Find the end of the previous line
-				int prevLineEnd = rawText.IndexOf('\n', prevLineStart);
-				if (prevLineEnd == -1) prevLineEnd = caretPos - 1;
-				else prevLineEnd = Mathf.Min(prevLineEnd, caretPos - 1);
-
-				if (prevLineStart >= prevLineEnd) return; // No previous line content
-
-				// Get the previous line content
-				string prevLine = rawText.Substring(prevLineStart, prevLineEnd - prevLineStart);
-
-				// Extract indentation from previous line (preserve exact whitespace characters)
-				string indentation = "";
-				for (int i = 0; i < prevLine.Length; i++)
-				{
-					if (prevLine[i] == ' ' || prevLine[i] == '\t')
-						indentation += prevLine[i];
-					else
-						break;
-				}
-
-				// Check if the previous line ends with a colon (increase indentation)
-				if (prevLine.TrimEnd().EndsWith(":"))
-				{
-					indentation += "\t"; // Add one tab character for increased indentation
-				}
-
-				// Insert indentation at current position
-				rawText = rawText.Insert(caretPos, indentation);
-				inputField.text = rawText;
-				inputField.caretPosition = caretPos + indentation.Length;
-
-				UpdateDisplayText();
-			}
-			finally
-			{
-				isUpdatingText = false;
-			}
-		}
-
-		private void HandleCtrlBackspace()
-		{
-			isUpdatingText = true;
-
-			try
-			{
-				int caretPos = inputField.caretPosition;
-
-				if (caretPos == 0) return;
-
-				// Find the start of the word to delete
-				int deleteStart = caretPos - 1;
-
-				// Skip whitespace
-				while (deleteStart > 0 && char.IsWhiteSpace(rawText[deleteStart]))
-					deleteStart--;
-
-				// Skip the word
-				while (deleteStart > 0 && !char.IsWhiteSpace(rawText[deleteStart - 1]))
-					deleteStart--;
-
-				// Delete the word and whitespace
-				int deleteLength = caretPos - deleteStart;
-				if (deleteLength > 0)
-				{
-					rawText = rawText.Remove(deleteStart, deleteLength);
-					inputField.text = rawText;
-					inputField.caretPosition = deleteStart;
-
-					UpdateDisplayText();
-				}
-			}
-			finally
-			{
-				isUpdatingText = false;
 			}
 		}
 
