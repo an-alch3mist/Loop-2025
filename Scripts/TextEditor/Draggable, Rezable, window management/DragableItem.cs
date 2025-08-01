@@ -23,7 +23,6 @@ public class ADragableItem : MonoBehaviour, IBeginDragHandler, IDragHandler, IEn
 		this.entireWindowRect.SetParent(this.entireWindowRect.root);
 		this.entireWindowRect.SetAsLastSibling();
 
-
 		this.delta = entireWindowRect.anchoredPosition - INPUT.UI.pos;
 		Vector2 targetPos = INPUT.UI.pos + this.delta;
 		// restriction within bounds >>
