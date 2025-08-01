@@ -1,0 +1,2 @@
+# Ignore Assets/_secure directory when push is done via git
+/_secure/

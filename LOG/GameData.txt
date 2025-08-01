@@ -1,0 +1,11 @@
+a = 1
+b = 10
+print(a)
+print(b)
+print(a + b)
+
+def _A(val):
+	return val * 2
+
+print(_A(1 + 1))
+print(_A(_A(_A(1) + _A(2)))) # nested functions arent working
