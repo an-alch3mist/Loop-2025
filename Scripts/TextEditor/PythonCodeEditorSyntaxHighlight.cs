@@ -13,18 +13,36 @@ namespace GptDeepResearch
 	/// <summary>
 	/// Professional Python code editor with syntax highlighting, auto-indentation, and smart editing features
 	/// </summary>
+
+	// USAGE NOTE: 
+	// Call RefreshGameCommands() whenever:
+	// 1. Scene changes and new GameController is registered
+	// 2. GameController adds/removes commands dynamically
+	// Example: GameControllerBase.Start() should call this method
 	public class PythonCodeEditorSyntaxHighlight : MonoBehaviour
 	{
+		// LABELED DIFF FOR PythonCodeEditorSyntaxHighlight.cs
+		// Add game command highlighting functionality
+
 		[Header("Components")]
 		[SerializeField] private TMP_InputField inputField;
 		[SerializeField] private TextMeshProUGUI displayText; // Separate display component
 
+		// LABELED DIFF FOR PythonCodeEditorSyntaxHighlight.cs
+		// Update syntax highlighting with new color scheme and built-in function detection
+
+		// REPLACE the [Header("Syntax Colors")] section (around line 20) with:
 		[Header("Syntax Colors")]
-		[SerializeField] private Color keywordColor = new Color(0.3f, 0.5f, 0.8f); // Blue
-		[SerializeField] private Color stringColor = new Color(0.2f, 0.8f, 0.2f); // Green
-		[SerializeField] private Color numberColor = new Color(1f, 0.6f, 0.2f); // Orange
-		[SerializeField] private Color commentColor = new Color(0.6f, 0.6f, 0.6f); // Gray
-		[SerializeField] private Color defaultColor = Color.white;
+		[SerializeField] private Color keywordColor = new Color(198f / 255f, 120f / 255f, 221f / 255f); // rgb(198,120,221)
+		[SerializeField] private Color stringColor = new Color(152f / 255f, 195f / 255f, 121f / 255f); // rgb(152,195,121)
+		[SerializeField] private Color numberColor = new Color(209f / 255f, 154f / 255f, 102f / 255f); // rgb(209,154,102)
+		[SerializeField] private Color commentColor = new Color(92f / 255f, 99f / 255f, 112f / 255f); // rgb(92,99,112)
+		[SerializeField] private Color operatorColor = new Color(97f / 255f, 175f / 255f, 239f / 255f); // rgb(97,175,239)
+																										// ADD: New colors for built-ins and game commands
+		[SerializeField] private Color builtinFunctionColor = new Color(224f / 255f, 108f / 255f, 117f / 255f); // rgb(224,108,117)
+		[SerializeField] private Color gameCommandColor = new Color(224f / 255f, 108f / 255f, 117f / 255f); // rgb(224,108,117)
+		[SerializeField] private Color defaultColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+
 
 		[Header("Editor Settings")]
 		[SerializeField] private int tabSize = 4;
@@ -39,7 +57,7 @@ namespace GptDeepResearch
 		// Syntax highlighting
 		private readonly SyntaxHighlighter syntaxHighlighter = new SyntaxHighlighter();
 
-		// Python keywords
+		// MODIFY the Python keywords set to remove print (around line 50):
 		public static readonly HashSet<string> PythonKeywords = new HashSet<string>
 		{
 			"if", "else", "elif", "while", "for", "def", "class",
@@ -51,7 +69,13 @@ namespace GptDeepResearch
 			"True", "False",
 			"None",
 			"global",
-			"print",
+			// REMOVE "print" from here - it's now in PythonBuiltins
+		};
+
+		// ADD new Python built-in functions set (around line 40):
+		public static readonly HashSet<string> PythonBuiltins = new HashSet<string>
+		{
+			"len", "sleep", "range", "print"
 		};
 
 		void Start()
@@ -73,6 +97,7 @@ namespace GptDeepResearch
 		}
 
 		// subscription to when inputfield alters
+		// MODIFY InitializeEditor method (around line 100):
 		private void InitializeEditor()
 		{
 			if (inputField == null)
@@ -103,12 +128,29 @@ namespace GptDeepResearch
 			inputField.onValueChanged.AddListener(OnTextChanged);
 			inputField.onSelect.AddListener(OnFieldSelected);
 
-			// Initialize syntax highlighter with colors
-			syntaxHighlighter.Initialize(keywordColor, stringColor, numberColor, commentColor, defaultColor);
+			// MODIFY: Initialize syntax highlighter with new colors
+			syntaxHighlighter.Initialize(keywordColor, stringColor, numberColor, commentColor,
+									   operatorColor, builtinFunctionColor, gameCommandColor, defaultColor);
 
 			// Process initial text if any
 			rawText = inputField.text;
 			UpdateDisplayText();
+		}
+
+
+		// ADD: Public method to refresh game commands (call this when scene changes)
+
+		/// <summary>
+		/// Refresh game command highlighting when scene controller changes
+		/// Call this method when switching scenes or when game commands change
+		/// </summary>
+		public void RefreshGameCommands()
+		{
+			if (syntaxHighlighter != null)
+			{
+				syntaxHighlighter.UpdateGameCommandRegex();
+				UpdateDisplayText(); // Re-process text with new commands
+			}
 		}
 
 		void ConfigureInputFieldWrapping()
@@ -290,12 +332,32 @@ namespace GptDeepResearch
 		private string numberColorCode;
 		private string commentColorCode;
 
-		public void Initialize(Color keyword, Color stringCol, Color number, Color comment, Color defaultCol)
+		// ADD new fields to SyntaxHighlighter class (around line 165):
+		private Color gameCommandColor;
+		private string gameCommandColorCode;
+		private Regex gameCommandRegex;
+
+		// ADD new fields to SyntaxHighlighter class (around line 180):
+		private Color operatorColor;
+		private Color builtinFunctionColor;
+		private string operatorColorCode;
+		private string builtinFunctionColorCode;
+		private Regex operatorRegex;
+		private Regex builtinFunctionRegex;
+
+
+
+		// MODIFY SyntaxHighlighter class Initialize method (around line 200):
+		public void Initialize(Color keyword, Color stringCol, Color number, Color comment,
+							  Color operatorCol, Color builtinFunc, Color gameCommand, Color defaultCol)
 		{
 			keywordColor = keyword;
 			stringColor = stringCol;
 			numberColor = number;
 			commentColor = comment;
+			operatorColor = operatorCol; // ADD this line
+			builtinFunctionColor = builtinFunc; // ADD this line
+			gameCommandColor = gameCommand;
 			defaultColor = defaultCol;
 
 			// Convert colors to hex codes
@@ -303,14 +365,26 @@ namespace GptDeepResearch
 			stringColorCode = ColorToHex(stringColor);
 			numberColorCode = ColorToHex(numberColor);
 			commentColorCode = ColorToHex(commentColor);
+			operatorColorCode = ColorToHex(operatorColor); // ADD this line
+			builtinFunctionColorCode = ColorToHex(builtinFunctionColor); // ADD this line
+			gameCommandColorCode = ColorToHex(gameCommandColor);
 
 			// Compile regex patterns
 			string keywordPattern = @"\b(" + string.Join("|", PythonCodeEditorSyntaxHighlight.PythonKeywords) + @")\b";
 			keywordRegex = new Regex(keywordPattern, RegexOptions.Compiled);
 
+			// ADD: Built-in function regex
+			string builtinPattern = @"\b(" + string.Join("|", PythonCodeEditorSyntaxHighlight.PythonBuiltins) + @")\b";
+			builtinFunctionRegex = new Regex(builtinPattern, RegexOptions.Compiled);
+
+			// Game command regex (will be updated dynamically)
+			UpdateGameCommandRegex();
+
 			stringRegex = new Regex(@"(""[^""]*""|'[^']*')", RegexOptions.Compiled);
 			numberRegex = new Regex(@"\b\d+(?:\.\d+)?\b", RegexOptions.Compiled);
 			commentRegex = new Regex(@"#.*$", RegexOptions.Compiled | RegexOptions.Multiline);
+			// ADD: Operator regex
+			operatorRegex = new Regex(@"[+\-*/=<>!&|%]+|==|!=|<=|>=|and\b|or\b|not\b", RegexOptions.Compiled);
 		}
 
 		public string ProcessText(string text)
@@ -364,6 +438,8 @@ namespace GptDeepResearch
 			return ApplySegments(line, segments);
 		}
 
+
+		// MODIFY ProcessSegments method in SyntaxHighlighter class (around line 280):
 		private List<TextSegment> ProcessSegments(string text)
 		{
 			var segments = new List<TextSegment>();
@@ -388,6 +464,47 @@ namespace GptDeepResearch
 				}
 			}
 
+			// ADD: Find built-in functions (avoiding strings and keywords)
+			if (builtinFunctionRegex != null)
+			{
+				var builtinMatches = builtinFunctionRegex.Matches(text);
+				foreach (Match match in builtinMatches)
+				{
+					if (!IsInStringRange(match.Index, stringRanges) && !IsInKeywordRange(match.Index, keywordMatches))
+					{
+						segments.Add(new TextSegment(match.Index, match.Length, builtinFunctionColorCode));
+					}
+				}
+			}
+
+			// Find game commands (avoiding strings, keywords, and built-ins)
+			if (gameCommandRegex != null)
+			{
+				var gameCommandMatches = gameCommandRegex.Matches(text);
+				foreach (Match match in gameCommandMatches)
+				{
+					if (!IsInStringRange(match.Index, stringRanges) &&
+						!IsInKeywordRange(match.Index, keywordMatches) &&
+						!IsInBuiltinRange(match.Index, builtinFunctionRegex?.Matches(text)))
+					{
+						segments.Add(new TextSegment(match.Index, match.Length, gameCommandColorCode));
+					}
+				}
+			}
+
+			// ADD: Find operators (avoiding strings)
+			if (operatorRegex != null)
+			{
+				var operatorMatches = operatorRegex.Matches(text);
+				foreach (Match match in operatorMatches)
+				{
+					if (!IsInStringRange(match.Index, stringRanges))
+					{
+						segments.Add(new TextSegment(match.Index, match.Length, operatorColorCode));
+					}
+				}
+			}
+
 			// Find numbers (avoiding strings)
 			var numberMatches = numberRegex.Matches(text);
 			foreach (Match match in numberMatches)
@@ -401,6 +518,30 @@ namespace GptDeepResearch
 			return segments;
 		}
 
+		// ADD helper method for built-in range checking:
+		private bool IsInBuiltinRange(int position, MatchCollection builtinMatches)
+		{
+			if (builtinMatches == null) return false;
+
+			foreach (Match match in builtinMatches)
+			{
+				if (position >= match.Index && position < match.Index + match.Length)
+					return true;
+			}
+			return false;
+		}
+
+
+		// ADD: Helper method to check keyword ranges
+		private bool IsInKeywordRange(int position, MatchCollection keywordMatches)
+		{
+			foreach (Match match in keywordMatches)
+			{
+				if (position >= match.Index && position < match.Index + match.Length)
+					return true;
+			}
+			return false;
+		}
 		private bool IsInStringRange(int position, List<(int start, int end)> stringRanges)
 		{
 			foreach (var range in stringRanges)
@@ -462,6 +603,41 @@ namespace GptDeepResearch
 				Start = start;
 				Length = length;
 				ColorCode = colorCode;
+			}
+		}
+
+
+		// ADD new methods to SyntaxHighlighter class:
+
+		/// <summary>
+		/// Update game command regex based on current scene's available commands
+		/// </summary>
+		public void UpdateGameCommandRegex()
+		{
+			var gameCommands = GetSceneCommands();
+			if (gameCommands.Count > 0)
+			{
+				string gameCommandPattern = @"\b(" + string.Join("|", gameCommands) + @")\b";
+				gameCommandRegex = new Regex(gameCommandPattern, RegexOptions.Compiled);
+			}
+			else
+			{
+				gameCommandRegex = null;
+			}
+		}
+
+		/// <summary>
+		/// Get available game commands from current scene
+		/// </summary>
+		private List<string> GetSceneCommands()
+		{
+			try
+			{
+				return GameBuiltinMethods.GetAllAvailableCommands();
+			}
+			catch
+			{
+				return new List<string>();
 			}
 		}
 	} 

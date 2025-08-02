@@ -1,3 +1,6 @@
+// LABELED DIFF FOR GameBuiltinMethods.cs
+// Replace the entire file with this updated version
+
 using System;
 using System.Collections;
 using UnityEngine;
@@ -5,120 +8,121 @@ using UnityEngine;
 namespace GptDeepResearch
 {
 	/*
-		Implement IGameController interface in your game's player controller
-		Register it with GameBuiltins.SetGameController(yourController)
-	*/
+        New system: Each scene provides a GameControllerBase implementation
+        that registers scene-specific commands with this system
+    */
 
-
-	// Interface for game actions that can be called from Python
-	public interface IGameController
-	{
-		IEnumerator MovePlayer(string direction);
-		IEnumerator CollectItem();
-		IEnumerator PlantSeed();
-		bool CanMoveInDirection(string direction);
-		int GetInventoryCount(string itemType);
-	}
+	// REMOVE: Old IGameController interface - replaced with GameControllerBase
 
 	// Add this class to handle built-in game functions
-	public static class GameBuiltins
+	public static class GameBuiltinMethods
 	{
-		private static IGameController gameController;
+		// MODIFY: Replace gameController with scene-specific controller
+		private static GameControllerBase sceneController;
 
-		public static void SetGameController(IGameController controller)
+		// ADD: Registration method for scene controllers
+		public static void RegisterGameController(GameControllerBase controller)
 		{
-			gameController = controller;
+			sceneController = controller;
+		}
+
+		// ADD: Unregistration method
+		public static void UnregisterGameController()
+		{
+			sceneController = null;
+		}
+
+		// ADD: Get current scene controller
+		public static GameControllerBase GetCurrentController()
+		{
+			return sceneController;
 		}
 
 		public static IEnumerator ExecuteBuiltinFunction(string functionName, object[] args, Action<object> setValue)
 		{
+			// MODIFY: Update function handling for new system
 			switch (functionName.ToLower())
 			{
+				// These are still handled by the old system for backward compatibility
 				case "move":
-					if (args.Length != 1)
-						throw new Exception($"move() takes exactly 1 argument ({args.Length} given)");
-
-					string direction = args[0]?.ToString().ToLower();
-					if (gameController != null)
-					{
-						var moveCoroutine = gameController.MovePlayer(direction);
-						while (moveCoroutine.MoveNext())
-							yield return moveCoroutine.Current;
-					}
-					else
-						throw new Exception($"move() function is not defined in gameController");
-					setValue(null);
-					break;
-
 				case "collect":
-					if (gameController != null)
-					{
-						var collectCoroutine = gameController.CollectItem();
-						while (collectCoroutine.MoveNext())
-							yield return collectCoroutine.Current;
-					}
-					else
-						throw new Exception($"collect() function is not defined in gameController");
-					setValue(null);
-					break;
-
 				case "plant":
-					if (gameController != null)
-					{
-						var plantCoroutine = gameController.PlantSeed();
-						while (plantCoroutine.MoveNext())
-							yield return plantCoroutine.Current;
-					}
-					else
-						throw new Exception($"plant() function is not defined in gameController");
-					setValue(null);
-					break;
-
 				case "can_move":
-					if (args.Length != 1)
-						throw new Exception($"can_move() takes exactly 1 argument ({args.Length} given)");
-
-					string checkDirection = args[0]?.ToString().ToLower();
-
-					if (gameController != null)
-					{
-						bool canMove = gameController?.CanMoveInDirection(checkDirection) ?? false;
-						setValue(canMove);
-					}
-					else
-					{
-						setValue(null);
-						throw new Exception($"can_move() function is not defined in gameController");
-					}
-					break;
-
 				case "inventory_count":
-					if (args.Length != 1)
-						throw new Exception($"inventory_count() takes exactly 1 argument ({args.Length} given)");
-
-					string itemType = args[0]?.ToString();
-					if (gameController != null)
+					// Check if we have the old-style controller
+					if (sceneController != null)
 					{
-
-						int count = gameController?.GetInventoryCount(itemType) ?? 0;
-						setValue(count);
+						// NEW: Route to scene controller
+						yield return HandleSceneCommand(functionName, args, setValue);
 					}
 					else
 					{
-						setValue(null);
-						throw new Exception($"inventory_count() function is not defined in gameController");
+						throw new Exception($"No scene controller registered for function '{functionName}'");
 					}
 					break;
 
 				default:
-					throw new Exception($"Unknown built-in function '{functionName}'");
+					// CHECK: If it's a scene-specific command
+					if (sceneController != null && sceneController.HasCommand(functionName))
+					{
+						yield return HandleSceneCommand(functionName, args, setValue);
+					}
+					else
+					{
+						throw new Exception($"Unknown built-in function '{functionName}'");
+					}
+					break;
+			}
+		}
+
+		// FIXED: Updated method to handle scene commands with new predicate signature
+		private static IEnumerator HandleSceneCommand(string functionName, object[] args, Action<object> setValue)
+		{
+			if (sceneController == null)
+			{
+				throw new Exception($"No scene controller registered for function '{functionName}'");
+			}
+
+			// Determine if this is an action or predicate command
+			if (sceneController.actionCommands.ContainsKey(functionName))
+			{
+				// Action command (no return value)
+				yield return sceneController.ExecuteActionCommand(functionName, args);
+				setValue(null);
+			}
+			else if (sceneController.predicateCommands.ContainsKey(functionName))
+			{
+				// Predicate command (returns bool)
+				bool result = false;
+				bool resultReceived = false;
+
+				// Execute the predicate command with callback
+				yield return sceneController.ExecutePredicateCommand(functionName, args, (bool predicateResult) =>
+				{
+					result = predicateResult;
+					resultReceived = true;
+				});
+
+				// Wait for result if needed
+				while (!resultReceived)
+				{
+					yield return null;
+				}
+
+				setValue(result);
+			}
+			else
+			{
+				throw new Exception($"Function '{functionName}' not found in scene controller");
 			}
 		}
 
 		public static bool IsBuiltinFunction(string functionName)
 		{
+			// MODIFY: Check both built-in and scene-specific functions
 			switch (functionName.ToLower())
 			{
+				// Legacy built-ins
 				case "move":
 				case "collect":
 				case "plant":
@@ -126,7 +130,34 @@ namespace GptDeepResearch
 				case "inventory_count":
 					return true;
 				default:
-					return false;
+					// Check scene controller
+					return sceneController != null && sceneController.HasCommand(functionName);
+			}
+		}
+
+		// ADD: Get all available commands for syntax highlighting
+		public static System.Collections.Generic.List<string> GetAllAvailableCommands()
+		{
+			var commands = new System.Collections.Generic.List<string>();
+
+			// Add legacy commands
+			commands.AddRange(new[] { "move", "collect", "plant", "can_move", "inventory_count" });
+
+			// Add scene-specific commands
+			if (sceneController != null)
+			{
+				commands.AddRange(sceneController.GetAllCommandNames());
+			}
+
+			return commands;
+		}
+
+		// ADD: Scene reset functionality
+		public static IEnumerator ResetScene()
+		{
+			if (sceneController != null)
+			{
+				yield return sceneController.SceneReset();
 			}
 		}
 	}

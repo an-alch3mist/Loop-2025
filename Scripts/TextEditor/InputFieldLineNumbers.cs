@@ -4,6 +4,8 @@ using UnityEngine.UI;
 using System.Text;
 using System.Collections;
 
+// LABELED DIFF FOR InputFieldLineNumbers.cs  
+// Add line execution highlighting functionality
 
 namespace GptDeepResearch
 {
@@ -19,12 +21,22 @@ namespace GptDeepResearch
 		public string lineNumberFormat = "{0:D3}"; // 001, 002, etc.
 		public float syncUpdateInterval = 0.02f; // Update frequency for scroll sync
 
+		// ADD new fields after the existing fields (around line 20):
+		[Header("Line Highlighting")]
+		public Color executingLineColor = Color.white;
+		public Color defaultLineColor = new Color(0.6f, 0.6f, 0.6f); // Gray
+
+		private int currentExecutingLine = -1;
+		private bool isExecuting = false;
+
+
 		private int previousLineCount = 0;
 		private StringBuilder lineNumbersBuilder = new StringBuilder();
 		private RectTransform inputFieldTextArea;
 		private TMP_Text inputFieldTextComponent;
 		private Coroutine scrollSyncCoroutine;
 
+		// MODIFY Start method (around line 30):
 		void Start()
 		{
 			if (inputField == null)
@@ -40,6 +52,11 @@ namespace GptDeepResearch
 				inputField.onValueChanged.AddListener(OnInputFieldChanged);
 			}
 
+			// ADD: Subscribe to execution tracking events
+			ExecutionTracker.OnLineExecuted += OnLineExecuted;
+			ExecutionTracker.OnExecutionStarted += OnExecutionStarted;
+			ExecutionTracker.OnExecutionStopped += OnExecutionStopped;
+
 			// Initialize line numbers
 			UpdateLineNumbers();
 
@@ -49,6 +66,7 @@ namespace GptDeepResearch
 			scrollSyncCoroutine = StartCoroutine(SynchronizeScrolling());
 		}
 
+		// MODIFY OnDestroy method (around line 60):
 		void OnDestroy()
 		{
 			if (inputField != null)
@@ -56,10 +74,33 @@ namespace GptDeepResearch
 				inputField.onValueChanged.RemoveListener(OnInputFieldChanged);
 			}
 
+			// ADD: Unsubscribe from execution tracking events
+			ExecutionTracker.OnLineExecuted -= OnLineExecuted;
+			ExecutionTracker.OnExecutionStarted -= OnExecutionStarted;
+			ExecutionTracker.OnExecutionStopped -= OnExecutionStopped;
+
 			if (scrollSyncCoroutine != null)
 			{
 				StopCoroutine(scrollSyncCoroutine);
 			}
+		}
+		
+		// ADD new event handlers (around line 75):
+		private void OnLineExecuted(int lineNumber)
+		{
+			currentExecutingLine = lineNumber;
+			UpdateLineNumberHighlighting();
+		}
+		private void OnExecutionStarted()
+		{
+			isExecuting = true;
+			UpdateLineNumberHighlighting();
+		}
+		private void OnExecutionStopped()
+		{
+			isExecuting = false;
+			currentExecutingLine = -1;
+			UpdateLineNumberHighlighting();
 		}
 
 		void OnInputFieldChanged(string text)
@@ -67,6 +108,7 @@ namespace GptDeepResearch
 			UpdateLineNumbers();
 		}
 
+		// MODIFY UpdateLineNumbers method (around line 80):
 		void UpdateLineNumbers()
 		{
 			if (inputField == null || lineNumbersText == null) return;
@@ -90,7 +132,43 @@ namespace GptDeepResearch
 
 				// Force layout rebuild
 				LayoutRebuilder.ForceRebuildLayoutImmediate(lineNumbersText.rectTransform);
+
+				// ADD: Update highlighting after rebuilding line numbers
+				UpdateLineNumberHighlighting();
 			}
+		}
+
+		// ADD new method for line highlighting (around line 110):
+		private void UpdateLineNumberHighlighting()
+		{
+			if (lineNumbersText == null) return;
+
+			// Parse existing line numbers text
+			string[] lines = lineNumbersText.text.Split('\n');
+			System.Text.StringBuilder newText = new System.Text.StringBuilder();
+
+			for (int i = 0; i < lines.Length; i++)
+			{
+				if (i > 0) newText.AppendLine();
+
+				// Extract line number from formatted text (remove any existing color tags)
+				string lineText = lines[i];
+				lineText = System.Text.RegularExpressions.Regex.Replace(lineText, @"<color[^>]*>|</color>", "");
+
+				// Apply highlighting based on execution state
+				if (isExecuting && currentExecutingLine == i + 1)
+				{
+					// Highlight current executing line in white
+					newText.Append($"<color=#{ColorUtility.ToHtmlStringRGB(executingLineColor)}>{lineText}</color>");
+				}
+				else
+				{
+					// Default gray color for all other lines
+					newText.Append($"<color=#{ColorUtility.ToHtmlStringRGB(defaultLineColor)}>{lineText}</color>");
+				}
+			}
+
+			lineNumbersText.text = newText.ToString();
 		}
 
 		IEnumerator SynchronizeScrolling()

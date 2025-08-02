@@ -17,7 +17,7 @@ namespace SPACE_LOOP
 				StartCoroutine(STIMULATE());
 			}
 		}
-
+		[SerializeField] TMPro.TMP_InputField inpField;
 		IEnumerator STIMULATE()
 		{
 			#region frame_rate
@@ -26,6 +26,8 @@ namespace SPACE_LOOP
 			#endregion
 			//
 			// this.check_secure();
+
+			Debug.Log(inpField.text);
 		}
 
 		void check_secure()

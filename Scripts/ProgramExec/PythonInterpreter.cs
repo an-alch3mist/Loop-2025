@@ -45,13 +45,14 @@ namespace GptDeepResearch
 		}
 
 		// Update ExecStmt method to handle GlobalStmt:
+		// MODIFY ExecStmt method - ADD line execution notification to each statement type:
 		private IEnumerator ExecStmt(Stmt stmt)
 		{
+			// ADD: Notify line execution at the beginning of each statement
+			ExecutionTracker.NotifyLineExecution(stmt.Line);
+
 			if (stmt is ExpressionStmt es)
 			{
-				// At the beginning of ExecStmt method, add:
-				ExecutionTracker.NotifyLineExecution(stmt.Line);
-
 				// Evaluate expression and discard result (for side-effects)
 				object value = null;
 				IEnumerator exprEnum = ExecExpr(es.Expression, val => value = val);
@@ -62,9 +63,6 @@ namespace GptDeepResearch
 			}
 			else if (stmt is AssignStmt asg)
 			{
-				// At the beginning of ExecStmt method, add:
-				ExecutionTracker.NotifyLineExecution(stmt.Line);
-
 				object value = null;
 				IEnumerator exprEnum = ExecExpr(asg.Value, val => value = val);
 				while (exprEnum.MoveNext())
@@ -73,11 +71,8 @@ namespace GptDeepResearch
 				}
 				SetVariable(asg.Target, value);
 			}
-			else if (stmt is GlobalStmt gs)  // Add this case
+			else if (stmt is GlobalStmt gs)
 			{
-				// At the beginning of ExecStmt method, add:
-				ExecutionTracker.NotifyLineExecution(stmt.Line);
-
 				if (GlobalDeclsStack.Count > 0)
 				{
 					var globalDecls = GlobalDeclsStack.Peek();
@@ -87,12 +82,8 @@ namespace GptDeepResearch
 					}
 				}
 			}
-			// ... rest of existing cases ...
 			else if (stmt is IfStmt ifs)
 			{
-				// At the beginning of ExecStmt method, add:
-				ExecutionTracker.NotifyLineExecution(stmt.Line);
-
 				object cond = null;
 				IEnumerator condEnum = ExecExpr(ifs.Condition, val => cond = val);
 				while (condEnum.MoveNext())
@@ -127,9 +118,6 @@ namespace GptDeepResearch
 			}
 			else if (stmt is WhileStmt ws)
 			{
-				// At the beginning of ExecStmt method, add:
-				ExecutionTracker.NotifyLineExecution(stmt.Line);
-
 				while (true)
 				{
 					object cond = null;
@@ -145,12 +133,8 @@ namespace GptDeepResearch
 					yield return null;
 				}
 			}
-			// 8. Add to PythonInterpreter.cs in ExecStmt method:
 			else if (stmt is ForStmt fs)
 			{
-				// At the beginning of ExecStmt method, add:
-				ExecutionTracker.NotifyLineExecution(stmt.Line);
-
 				// Evaluate the iterable
 				object iterableObj = null;
 				IEnumerator iterEnum = ExecExpr(fs.Iterable, val => iterableObj = val);
@@ -202,17 +186,11 @@ namespace GptDeepResearch
 			}
 			else if (stmt is FunctionDefStmt fdef)
 			{
-				// At the beginning of ExecStmt method, add:
-				ExecutionTracker.NotifyLineExecution(stmt.Line);
-
 				// Store function definition for later calls
 				Functions[fdef.Name] = fdef;
 			}
 			else if (stmt is ReturnStmt ret)
 			{
-				// At the beginning of ExecStmt method, add:
-				ExecutionTracker.NotifyLineExecution(stmt.Line);
-
 				object returnValue = null;
 				if (ret.Value != null)
 				{
@@ -223,22 +201,18 @@ namespace GptDeepResearch
 					}
 				}
 				throw new ReturnException(returnValue);
-
 			}
 			else if (stmt is PassStmt)
 			{
-				// At the beginning of ExecStmt method, add:
-				ExecutionTracker.NotifyLineExecution(stmt.Line);
-
 				// Do nothing
 			}
 			else
 			{
-				Debug.Log($"instead of throw new Exeption: Unknown statement type at line {stmt.Line}");
+				Debug.Log($"instead of throw new Exception: Unknown statement type at line {stmt.Line}");
 				yield break;
-				// throw new Exception($"Unknown statement type at line {stmt.Line}");
 			}
 		}
+
 
 		private IEnumerator ExecExpr(Expr expr, Action<object> setValue)
 		{
@@ -564,57 +538,10 @@ namespace GptDeepResearch
 		}
 
 
-
-
 		// Add this method to your PythonInterpreter class
+		// MODIFY HandleBuiltinFunction method - UPDATE print() implementation:
 		private IEnumerator HandleBuiltinFunction(string fname, List<object> args, Action<object> setValue, CallExpr ce)
 		{
-
-			// old approach
-			#region old approach
-			/*
-			if (fname == "print")
-			{
-				// Debug.Log("fname: is print");
-				// Print all arguments separated by space
-				string output = "";
-				for (int i = 0; i < args.Count; i++)
-				{
-					if (i > 0) output += " ";
-					output += (args[i] != null ? args[i].ToString() : "None");
-				}
-				Debug.Log(output);
-				setValue(null);
-			}
-			else if (fname == "sleep")
-			{
-				double seconds = 0;
-				if (args.Count > 0)
-					seconds = Convert.ToDouble(args[0]);
-				// Yield real-time wait
-				yield return new WaitForSecondsRealtime((float)seconds);
-				setValue(null);
-			}
-			else if (Functions.ContainsKey(fname))
-			{
-				// User-defined function call
-				object funcResult = null;
-				IEnumerator funcEnum = ExecFunction(Functions[fname], args, val => funcResult = val);
-				while (funcEnum.MoveNext())
-				{
-					yield return funcEnum.Current;
-				}
-				setValue(funcResult);
-			}
-			else
-			{
-				throw new Exception($"Unknown function '{fname}' at line {ce.Line}");
-			}
-			*/
-			#endregion
-
-			// new apprach
-			#region new approach
 			switch (fname)
 			{
 				case "print":
@@ -624,13 +551,25 @@ namespace GptDeepResearch
 						if (i > 0) output += " ";
 						output += (args[i] != null ? args[i].ToString() : "None");
 					}
-					Debug.Log(output);
+
+					// MODIFY: Send to console manager instead of just Debug.Log
+					try
+					{
+						ConsoleManager.AddMessage(output, ConsoleMessageType.Print);
+					}
+					catch (Exception ex)
+					{
+						// Fallback to Debug.Log if console manager fails
+						Debug.LogError($"Console manager error: {ex.Message}");
+						Debug.Log(output);
+					}
+
 					setValue(null);
 					break;
 
 				case "len":
 					if (args.Count != 1)
-						throw new Exception($"len() takes exactly one argument ({args.Count} given)");
+						throw new Exception($"len() takes exactly one argument ({args.Count} given) at line {ce.Line}");
 
 					object obj = args[0];
 					if (obj is List<object> list)
@@ -638,7 +577,7 @@ namespace GptDeepResearch
 					else if (obj is string str)
 						setValue(str.Length);
 					else
-						throw new Exception($"object of type '{obj?.GetType().Name}' has no len()");
+						throw new Exception($"object of type '{obj?.GetType().Name}' has no len() at line {ce.Line}");
 					break;
 
 				case "range":
@@ -685,7 +624,7 @@ namespace GptDeepResearch
 					}
 					else
 					{
-						throw new Exception($"range expected at most 3 arguments, got {args.Count}");
+						throw new Exception($"range expected at most 3 arguments, got {args.Count} at line {ce.Line}");
 					}
 					break;
 
@@ -699,9 +638,9 @@ namespace GptDeepResearch
 
 				default:
 					// Check if it's a game built-in function
-					if (GameBuiltins.IsBuiltinFunction(fname))
+					if (GameBuiltinMethods.IsBuiltinFunction(fname))
 					{
-						var gameBuiltinEnum = GameBuiltins.ExecuteBuiltinFunction(fname, args.ToArray(), setValue);
+						var gameBuiltinEnum = GameBuiltinMethods.ExecuteBuiltinFunction(fname, args.ToArray(), setValue);
 						while (gameBuiltinEnum.MoveNext())
 							yield return gameBuiltinEnum.Current;
 					}
@@ -716,13 +655,11 @@ namespace GptDeepResearch
 					}
 					else
 					{
-						throw new Exception($"Unknown function '{fname}'");
+						throw new Exception($"Unknown function '{fname}' at line {ce.Line}");
 					}
 					break;
-			} 
-			#endregion
+			}
 		}
-
 
 
 		// Executes a user-defined function, yielding a step delay after each statement
