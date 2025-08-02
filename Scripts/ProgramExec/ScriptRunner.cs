@@ -12,7 +12,6 @@ namespace GptDeepResearch
 		public TMP_InputField consoleOutput;
 		public Button runButton;
 		public LineHighlighter lineHighlighter;
-		public CodeEditorWithLineNumbers codeEditor;
 
 		[Header("Settings")]
 		public static float stepDelay = 1f / 10;

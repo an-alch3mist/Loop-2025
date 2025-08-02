@@ -20,7 +20,7 @@ namespace GptDeepResearch
 		[SerializeField] private TextMeshProUGUI displayText; // Separate display component
 
 		[Header("Syntax Colors")]
-		[SerializeField] private Color keywordColor = new Color(0.3f, 0.5f, 1f); // Blue
+		[SerializeField] private Color keywordColor = new Color(0.3f, 0.5f, 0.8f); // Blue
 		[SerializeField] private Color stringColor = new Color(0.2f, 0.8f, 0.2f); // Green
 		[SerializeField] private Color numberColor = new Color(1f, 0.6f, 0.2f); // Orange
 		[SerializeField] private Color commentColor = new Color(0.6f, 0.6f, 0.6f); // Gray
@@ -69,10 +69,10 @@ namespace GptDeepResearch
 
 		void Update()
 		{
-
 			// HandleSpecialInput();
 		}
 
+		// subscription to when inputfield alters
 		private void InitializeEditor()
 		{
 			if (inputField == null)
@@ -152,6 +152,7 @@ namespace GptDeepResearch
 			}
 		}
 
+		#region Syntax Highlight, Twin text element approach
 		private void SetupOverlayDisplay()
 		{
 			// Create overlay text component
@@ -463,5 +464,6 @@ namespace GptDeepResearch
 				ColorCode = colorCode;
 			}
 		}
-	}
+	} 
+	#endregion
 }
