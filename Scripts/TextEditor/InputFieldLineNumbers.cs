@@ -1,8 +1,10 @@
-﻿using UnityEngine;
-using TMPro;
-using UnityEngine.UI;
-using System.Text;
+﻿using System;
 using System.Collections;
+using System.Text;
+
+using UnityEngine;
+using UnityEngine.UI;
+using TMPro;
 
 // LABELED DIFF FOR InputFieldLineNumbers.cs  
 // Add line execution highlighting functionality
@@ -303,5 +305,46 @@ namespace GptDeepResearch
 				lineNumbersScrollRect.verticalNormalizedPosition = 1f;
 			}
 		}
-	} 
+	}
+
+	/// <summary>
+	/// Tracks Python script execution for line highlighting
+	/// Usage: Call ExecutionTracker.NotifyLineExecution(lineNumber) from PythonInterpreter
+	/// </summary>
+	public static class ExecutionTracker
+	{
+		// Event fired when a line is executed
+		public static event Action<int> OnLineExecuted;
+
+		// Event fired when execution starts
+		public static event Action OnExecutionStarted;
+
+		// Event fired when execution stops/completes
+		public static event Action OnExecutionStopped;
+
+		/// <summary>
+		/// Call this from PythonInterpreter when executing each statement
+		/// </summary>
+		public static void NotifyLineExecution(int lineNumber)
+		{
+			OnLineExecuted?.Invoke(lineNumber);
+		}
+
+		/// <summary>
+		/// Call this when script execution begins
+		/// </summary>
+		public static void NotifyExecutionStarted()
+		{
+			OnExecutionStarted?.Invoke();
+		}
+
+		/// <summary>
+		/// Call this when script execution stops or completes
+		/// </summary>
+		public static void NotifyExecutionStopped()
+		{
+			OnExecutionStopped?.Invoke();
+		}
+	}
+
 }

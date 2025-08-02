@@ -138,7 +138,7 @@ namespace GptDeepResearch
 			// Reset scene first, then coordinate with GlobalScriptManager
 			StartCoroutine(ResetWithScene());
 		}
-		// ADD: New method to handle reset with scene reset
+		// MODIFY the ResetWithScene method (around line 130):
 		private IEnumerator ResetWithScene()
 		{
 			// Stop any running execution first
@@ -150,6 +150,9 @@ namespace GptDeepResearch
 
 			// Reset scene state
 			yield return ResetSceneState();
+
+			// ADD: Log reset message instead of clearing console
+			ConsoleManager.LogInfo("Script reset has been made");
 
 			// Then coordinate with GlobalScriptManager
 			GlobalScriptManager.ResetAllRunners();
@@ -251,26 +254,23 @@ namespace GptDeepResearch
 			GlobalScriptManager.OnScriptComplete(this);
 		}
 
-		// MODIFY ReportError method (around line 180):
+		// MODIFY the ReportError method to ensure errors go to console (around line 180):
 		private void ReportError(string msg)
 		{
 			string errorMessage = $"@{errorPrefix}: {msg}";
 			ErrorLog += errorMessage + "\n";
 
-			// ADD: Send error to console manager instead of just consoleOutput
-			ConsoleManager.AddMessage(errorMessage, ConsoleMessageType.Error);
-
-			if (consoleOutput != null)
-				consoleOutput.text = ErrorLog;
+			// Send error to console manager
+			ConsoleManager.LogError(errorMessage);
 
 			isExecuting = false;
 			currentExecutingLine = -1;
-			UpdateLineNumberHighlighting(); // Reset highlighting
+			UpdateLineNumberHighlighting();
 
-			// ADD: Notify execution stopped on error
+			// Notify execution stopped on error
 			ExecutionTracker.NotifyExecutionStopped();
 
-			// ADD: Notify GlobalScriptManager of error
+			// Notify GlobalScriptManager of error
 			GlobalScriptManager.OnScriptError(this);
 		}
 
@@ -291,11 +291,16 @@ namespace GptDeepResearch
 			}
 		}
 
-		// ADD: New method for console clearing
+		// MODIFY the ClearConsole method to NOT clear the console (around line 220):
 		private void ClearConsole()
 		{
-			if (consoleOutput != null)
-				consoleOutput.text = "";
+			// DON'T clear the console anymore - let it accumulate messages
+			// Keep this method for compatibility but make it do nothing
+			// if (consoleOutput != null)
+			//     consoleOutput.text = "";
+			// ErrorLog = "";
+
+			// Instead, just reset the ErrorLog for this script runner
 			ErrorLog = "";
 		}
 

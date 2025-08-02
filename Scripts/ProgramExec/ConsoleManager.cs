@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Text;
 using UnityEngine;
+
+using UnityEngine.UI;
 using TMPro;
 
 namespace GptDeepResearch
@@ -35,12 +37,6 @@ namespace GptDeepResearch
 
 				if (consoleDisplay == null)
 					consoleDisplay = GetComponent<TMP_InputField>();
-
-				// Subscribe to Unity's log messages if enabled
-				if (showUnityLogs)
-				{
-					Application.logMessageReceived += OnUnityLogReceived;
-				}
 			}
 			else
 			{
@@ -53,17 +49,23 @@ namespace GptDeepResearch
 			if (Instance == this)
 			{
 				Instance = null;
-				Application.logMessageReceived -= OnUnityLogReceived;
 			}
 		}
 
+		// MODIFY ScrollToBottom method to be more reliable:
 		static void ScrollToBottom(TMP_InputField inputField)
 		{
-			// Force the UI to rebuild layouts so the content height is updated
-			// Canvas.ForceUpdateCanvases();
-
-			// 0 = bottom; 1 = top (verticalNormalizedPosition is inverted)
-			// consoleDisplay.verticalNormalizedPosition = 0f;
+			if (inputField != null)
+			{
+				var scrollRect = inputField.GetComponent<ScrollRect>();
+				if (scrollRect != null)
+				{
+					// Force content size update
+					Canvas.ForceUpdateCanvases();
+					// 0 = bottom; 1 = top (verticalNormalizedPosition is inverted)
+					scrollRect.verticalNormalizedPosition = 0f;
+				}
+			}
 		}
 
 		/// <summary>
@@ -87,6 +89,28 @@ namespace GptDeepResearch
 				Instance.ClearInternal();
 			}
 		}
+		// ADD these new static methods after Clear() method (around line 75):
+		/// <summary>
+		/// Log an info message (yellow color)
+		/// </summary>
+		public static void LogInfo(string message)
+		{
+			if (Instance != null)
+			{
+				Instance.AddMessageInternal($"<color=yellow>{message}</color>", ConsoleMessageType.Print);
+			}
+		}
+		/// <summary>
+		/// Log an error message (red color)
+		/// </summary>
+		public static void LogError(string message)
+		{
+			if (Instance != null)
+			{
+				Instance.AddMessageInternal($"<color=red>[ERROR]</color> {message}", ConsoleMessageType.Error);
+			}
+		}
+
 
 		private void AddMessageInternal(string message, ConsoleMessageType type)
 		{
@@ -102,17 +126,23 @@ namespace GptDeepResearch
 				string formattedMessage = $"{timestamp}{prefix}{message}";
 
 				// Add to console text
+
+				/*
 				if (currentLineCount > 0)
 					consoleText.AppendLine();
-
 				consoleText.Append(formattedMessage);
+				*/
+				AppendLineToBeginning(consoleText, formattedMessage);
+
 				currentLineCount++;
 
+				/*
 				// Trim old lines if we exceed max
 				if (currentLineCount > maxLines)
 				{
 					TrimOldLines();
 				}
+				*/
 
 				// Update display
 				UpdateDisplay();
@@ -123,6 +153,13 @@ namespace GptDeepResearch
 				Debug.LogError($"ConsoleManager error: {ex.Message}");
 			}
 		}
+		static void AppendLineToBeginning(StringBuilder sb, string formattedMessage)
+		{
+			// Only '\n'—no '\r'
+			string newline = sb.Length > 0 ? "\n" : "\n";
+			string line = $"{newline}{formattedMessage}";
+			sb.Insert(0, line);
+		}
 
 		private void ClearInternal()
 		{
@@ -131,17 +168,6 @@ namespace GptDeepResearch
 			UpdateDisplay();
 		}
 
-		private void OnUnityLogReceived(string logString, string stackTrace, LogType type)
-		{
-			// Only show Debug.Log messages (not warnings/errors to avoid spam)
-			if (type == LogType.Log)
-			{
-				AddMessageInternal(logString, ConsoleMessageType.Unity);
-			}
-			// 
-			if(this.autoScroll  == true)
-				ScrollToBottom(this.consoleDisplay);
-		}
 
 		private string GetTypePrefix(ConsoleMessageType type)
 		{
@@ -180,27 +206,22 @@ namespace GptDeepResearch
 			}
 		}
 
+		// MODIFY UpdateDisplay method (around line 160) - ADD auto-scroll after text update:
 		private void UpdateDisplay()
 		{
 			if (consoleDisplay != null)
 			{
 				consoleDisplay.text = consoleText.ToString();
 
-				// Auto-scroll to bottom
+				// Force canvas update and auto-scroll to bottom
 				Canvas.ForceUpdateCanvases();
+
+				if (autoScroll)
+				{
+					ScrollToBottom(consoleDisplay);
+				}
 			}
 		}
-
-		/*
-		/// <summary>
-		/// Set the console display component
-		/// </summary>
-		public void SetConsoleDisplay(TMP_Text display)
-		{
-			consoleDisplay = display;
-			UpdateDisplay();
-		}
-		*/
 	}
 
 	public enum ConsoleMessageType

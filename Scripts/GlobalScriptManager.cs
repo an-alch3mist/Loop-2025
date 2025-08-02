@@ -46,13 +46,14 @@ namespace GptDeepResearch
 		/// Called when a ScriptRunner's Run button is pressed
 		/// Stops all other runners and starts the specified one
 		/// </summary>
+		// MODIFY the StartRunner method (around line 45):
 		public static void StartRunner(ScriptRunner runner)
 		{
 			// Stop all runners first
 			StopAllRunners();
 
-			// Clear console
-			ClearConsole();
+			// REMOVE: Don't clear console anymore - let messages accumulate
+			// ClearConsole();
 
 			// Set new running script
 			currentRunningScript = runner;
@@ -134,9 +135,13 @@ namespace GptDeepResearch
 		/// <summary>
 		/// Clear the console
 		/// </summary>
+		// MODIFY the ClearConsole method to be a no-op (around line 110):
 		private static void ClearConsole()
 		{
-			OnClearConsole?.Invoke();
+			// DON'T clear console anymore - preserve message history
+			// OnClearConsole?.Invoke();
+
+			// Keep the method for backwards compatibility but make it do nothing
 		}
 
 		/// <summary>

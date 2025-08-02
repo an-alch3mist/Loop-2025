@@ -82,6 +82,7 @@ namespace GptDeepResearch
 		{
 			InitializeEditor();
 			// ConfigureInputFieldWrapping();
+			Debug.Log(this.gameObject);
 			Debug.Log(inputField.text.flat());
 
 			/* not a desirable behaviour when word wrap for an innput field is disabled

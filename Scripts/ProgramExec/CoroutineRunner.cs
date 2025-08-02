@@ -13,47 +13,62 @@ namespace GptDeepResearch
 
 	public static class CoroutineRunner
 	{
+		// LABELED DIFF FOR CoroutineRunner.cs
+		// Improve error handling to catch ALL exceptions and route to ConsoleManager
 
-		// MODIFY SafeExecute method for improved error handling:
+		// REPLACE the entire SafeExecute method (around line 15):
 		public static IEnumerator SafeExecute(IEnumerator routine, float stepDelay, Action<string> onError, Action onComplete = null)
 		{
 			while (true)
 			{
 				object current = null;
+				bool routineFinished = false;
+				bool hasError = false;
+				string errorMessage = "";
+
+				// Try to get next value from routine
 				try
 				{
-					if (!routine.MoveNext())
+					routineFinished = !routine.MoveNext();
+					if (routineFinished)
 					{
-						// MODIFY: Call onComplete when routine finishes successfully
+						// Routine finished successfully
 						onComplete?.Invoke();
 						break;
 					}
 					current = routine.Current;
 				}
-				catch (Exception ex)
+				catch (System.Exception ex)
 				{
-					// MODIFY: Improved error handling with console integration
-					string errorMessage = $"Runtime error: {ex.Message}";
+					// Mark error and prepare message outside try-catch
+					hasError = true;
+					errorMessage = ex.Message;
+				}
 
-					// Try to send to console manager first
+				// Handle error outside try-catch to avoid yield return limitation
+				if (hasError)
+				{
+					// Send to console manager with error styling
 					try
 					{
-						ConsoleManager.AddMessage(errorMessage, ConsoleMessageType.Error);
+						ConsoleManager.LogError(errorMessage);
 					}
 					catch
-					{	// without .logerror
-						// Fallback to Unity console if console manager fails
-						Debug.Log("errorFallBack: " + errorMessage);
+					{
+						// Ultimate fallback - should never happen
+						UnityEngine.Debug.Log($"Console fallback: Runtime error: {errorMessage}");
 					}
 
-					onError?.Invoke(ex.Message);
+					// Also call the original error callback for compatibility
+					onError?.Invoke(errorMessage);
 					yield break;
 				}
 
+				// Handle nested coroutines and delays (outside try-catch)
 				if (current is IEnumerator nested)
 				{
-					// If the yielded value is another IEnumerator, wrap it
-					yield return SafeExecute(nested, stepDelay, onError, null); // Don't pass onComplete to nested
+					// If the yielded value is another IEnumerator, wrap it recursively
+					yield return SafeExecute(nested, stepDelay, onError, null);
 				}
 				else if (current == null)
 				{
